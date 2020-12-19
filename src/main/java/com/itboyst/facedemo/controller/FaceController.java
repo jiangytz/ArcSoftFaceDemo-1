@@ -1,6 +1,7 @@
 package com.itboyst.facedemo.controller;
 
 import cn.hutool.core.collection.CollectionUtil;
+import com.arcsoft.face.FaceFeature;
 import com.arcsoft.face.FaceInfo;
 import com.arcsoft.face.toolkit.ImageFactory;
 import com.arcsoft.face.toolkit.ImageInfo;
@@ -23,6 +24,8 @@ import org.springframework.util.ResourceUtils;
 import org.springframework.web.bind.annotation.*;
 import javax.annotation.PostConstruct;
 import java.io.*;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
@@ -157,4 +160,62 @@ public class FaceController {
         return Response.newSuccessResponse(similar);
     }
 
+    /**
+     * 签到接口
+     * @author iLoveCYaRon Blade Xu
+     * @time 2020/12/19 22:27
+     * @param image 人脸图片，Base64数据，带形如“data:image/jpg;base64,”请求头
+     * @param name 要签到的人脸ID，目前是名字
+     * @return 匹配成功 返回 {data:true}
+     */
+    //TODO: 修改返回值格式
+    @RequestMapping(value = "/doSign", method = RequestMethod.POST)
+    @ResponseBody
+    public Response<Boolean> doSign(String image, String name) {
+        if(UserRamCache.getUserById(name) == null) {
+            return Response.newSuccessResponse(false);
+        }
+
+        //将字符串解码回二进制图片数据
+        byte[] bytes = Base64Util.base64ToBytes(image);
+        ImageInfo rgbData = ImageFactory.getRGBData(bytes);
+
+        //检测提取人脸特征，未提取到人脸或者人脸不匹配返回false
+        List<FaceInfo> faceInfos = faceEngineService.detectFaces(rgbData);
+        if (!faceInfos.isEmpty()) {
+            byte[] feature = faceEngineService.extractFaceFeature(rgbData, faceInfos.get(0));
+            if (faceEngineService.faceRecognition(feature, UserRamCache.getUserById(name), 0.8f) != null) {
+                return Response.newSuccessResponse(true);
+            }
+        }
+        return Response.newSuccessResponse(false);
+
+    }
+
+
+
+
+
+
+
+
+
+
+
+
+
+    //签到
+    @RequestMapping(value = "/compareFaces2", method = RequestMethod.POST)
+    @ResponseBody
+    public Response<Float> compareFaces2(String image1, String image2) {
+
+        byte[] bytes1 = Base64Util.base64ToBytes(image1);
+        byte[] bytes2 = Base64Util.base64ToBytes(image2);
+        ImageInfo rgbData1 = ImageFactory.getRGBData(bytes1);
+        ImageInfo rgbData2 = ImageFactory.getRGBData(bytes2);
+
+        Float similar = faceEngineService.compareFace(rgbData1, rgbData2);
+
+        return Response.newSuccessResponse(similar);
+    }
 }
