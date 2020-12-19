@@ -192,30 +192,4 @@ public class FaceController {
 
     }
 
-
-
-
-
-
-
-
-
-
-
-
-
-    //签到
-    @RequestMapping(value = "/compareFaces2", method = RequestMethod.POST)
-    @ResponseBody
-    public Response<Float> compareFaces2(String image1, String image2) {
-
-        byte[] bytes1 = Base64Util.base64ToBytes(image1);
-        byte[] bytes2 = Base64Util.base64ToBytes(image2);
-        ImageInfo rgbData1 = ImageFactory.getRGBData(bytes1);
-        ImageInfo rgbData2 = ImageFactory.getRGBData(bytes2);
-
-        Float similar = faceEngineService.compareFace(rgbData1, rgbData2);
-
-        return Response.newSuccessResponse(similar);
-    }
 }
