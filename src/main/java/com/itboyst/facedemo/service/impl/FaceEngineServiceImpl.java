@@ -75,7 +75,7 @@ public class FaceEngineServiceImpl implements FaceEngineService {
         detectFunctionCfg.setSupportLiveness(true);//开启活体检测功能
         detectCfg.setFunctionConfiguration(detectFunctionCfg);
         detectCfg.setDetectMode(DetectMode.ASF_DETECT_MODE_IMAGE);//图片检测模式，如果是连续帧的视频流图片，那么改成VIDEO模式
-        detectCfg.setDetectFaceOrientPriority(DetectOrient.ASF_OP_0_ONLY);//人脸旋转角度
+        detectCfg.setDetectFaceOrientPriority(DetectOrient.ASF_OP_ALL_OUT);//人脸旋转角度
         faceEngineGeneralPool = new GenericObjectPool(new FaceEngineFactory(sdkLibPath, appId, sdkKey, null, detectCfg), detectPoolConfig);//底层库算法对象池
 
 
@@ -90,7 +90,7 @@ public class FaceEngineServiceImpl implements FaceEngineService {
         compareFunctionCfg.setSupportFaceRecognition(true);//开启人脸识别功能
         compareCfg.setFunctionConfiguration(compareFunctionCfg);
         compareCfg.setDetectMode(DetectMode.ASF_DETECT_MODE_IMAGE);//图片检测模式，如果是连续帧的视频流图片，那么改成VIDEO模式
-        compareCfg.setDetectFaceOrientPriority(DetectOrient.ASF_OP_0_ONLY);//人脸旋转角度
+        compareCfg.setDetectFaceOrientPriority(DetectOrient.ASF_OP_ALL_OUT);//人脸旋转角度
         faceEngineComparePool = new GenericObjectPool(new FaceEngineFactory(sdkLibPath, appId, sdkKey, null, compareCfg), comparePoolConfig);//底层库算法对象池
         compareExecutorService = Executors.newFixedThreadPool(comparePooSize);
     }

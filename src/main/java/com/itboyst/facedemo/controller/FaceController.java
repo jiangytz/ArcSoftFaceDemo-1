@@ -1,7 +1,6 @@
 package com.itboyst.facedemo.controller;
 
 import cn.hutool.core.collection.CollectionUtil;
-import com.arcsoft.face.FaceFeature;
 import com.arcsoft.face.FaceInfo;
 import com.arcsoft.face.toolkit.ImageFactory;
 import com.arcsoft.face.toolkit.ImageInfo;
@@ -14,20 +13,18 @@ import com.itboyst.facedemo.entity.UserCompareInfo;
 import com.itboyst.facedemo.rpc.Response;
 import com.itboyst.facedemo.service.FaceEngineService;
 import com.itboyst.facedemo.util.Base64Util;
+import com.itboyst.facedemo.util.HistoryRamCache;
 import com.itboyst.facedemo.util.UserRamCache;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.stereotype.Controller;
-import org.springframework.util.ResourceUtils;
 import org.springframework.web.bind.annotation.*;
 import javax.annotation.PostConstruct;
 import java.io.*;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
+import java.text.SimpleDateFormat;
+import java.util.*;
 
 
 @Controller
@@ -64,6 +61,7 @@ public class FaceController {
                 userInfo.setName(fileMap.get(f));
                 userInfo.setFaceFeature(feature);
                 UserRamCache.addUser(userInfo);
+                HistoryRamCache.addHistory(f);
             }
         }
 
@@ -165,14 +163,14 @@ public class FaceController {
      * @author iLoveCYaRon Blade Xu
      * @time 2020/12/19 22:27
      * @param image 人脸图片，Base64数据，带形如“data:image/jpg;base64,”请求头
-     * @param name 要签到的人脸ID，目前是名字
+     * @param id 要签到的人脸ID，目前是名字
      * @return 匹配成功 返回 {data:true}
      */
     //TODO: 修改返回值格式
     @RequestMapping(value = "/doSign", method = RequestMethod.POST)
     @ResponseBody
-    public Response<Boolean> doSign(String image, String name) {
-        if(UserRamCache.getUserById(name) == null) {
+    public Response<Boolean> doSign(String image, String id) {
+        if(UserRamCache.getUserById(id) == null) {
             return Response.newSuccessResponse(false);
         }
 
@@ -184,7 +182,15 @@ public class FaceController {
         List<FaceInfo> faceInfos = faceEngineService.detectFaces(rgbData);
         if (!faceInfos.isEmpty()) {
             byte[] feature = faceEngineService.extractFaceFeature(rgbData, faceInfos.get(0));
-            if (faceEngineService.faceRecognition(feature, UserRamCache.getUserById(name), 0.8f) != null) {
+            if (faceEngineService.faceRecognition(feature, UserRamCache.getUserById(id), 0.8f) != null) {
+
+                //获取当前系统时间
+                Date date = new Date();
+                SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+                String day = dateFormat.format(date);
+                //为该id的签到历史添加一项
+                HistoryRamCache.addHistoryItem(id, new HistoryRamCache.History(id, day));
+
                 return Response.newSuccessResponse(true);
             }
         }
@@ -192,4 +198,34 @@ public class FaceController {
 
     }
 
+    /**
+     * 获取签到历史接口
+     * @author HardAlways
+     * @time 2020/12/20 11:17
+     * @param id 人名
+     * @return 返回 {data:签到历史} 签到历史可空
+     */
+    @RequestMapping(value = "/HistoryList", method = RequestMethod.GET)
+    @ResponseBody
+    public Response<List<HistoryRamCache.History>> HistoryList(String id) {
+        if(HistoryRamCache.getHistoryList(id) == null) {
+            return Response.newSuccessResponse(null);
+        }
+        return Response.newSuccessResponse(HistoryRamCache.getHistoryList(id));
+    }
+
+    /**
+     * 获取学生列表接口
+     * @author HardAlways
+     * @time 2020/12/20 13：10
+     * @return 返回 {data:学生列表}
+     */
+    @RequestMapping(value = "/StudentList", method = RequestMethod.GET)
+    @ResponseBody
+    public Response<List<UserRamCache.UserInfo>> StudentList() {
+        if (UserRamCache.getUserList() == null) {
+            return Response.newSuccessResponse(null);
+        }
+        return Response.newSuccessResponse(UserRamCache.getUserList());
+    }
 }
