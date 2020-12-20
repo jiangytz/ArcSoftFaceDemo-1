@@ -192,7 +192,7 @@ public class FaceController {
      * @param id 要签到的人脸ID，目前是名字
      * @return 匹配成功 返回 {data:true}
      */
-    @RequestMapping(value = "/sign", method = RequestMethod.POST)
+    @RequestMapping(value = "/sign2", method = RequestMethod.POST)
     @ResponseBody
     public Response<Boolean> signWithImageData(String imageData,int width, int height, String id) throws IOException, ClassNotFoundException {
         if(UserRamCache.getUserById(id) == null) {
@@ -251,7 +251,7 @@ public class FaceController {
      */
     @RequestMapping(value = "/historyList", method = RequestMethod.GET)
     @ResponseBody
-    public Response<List<HistoryRamCache.History>> HistoryList(String id) {
+    public Response<List<HistoryRamCache.History>> historyList(String id) {
         if(HistoryRamCache.getHistoryList(id) == null) {
             return Response.newSuccessResponse(null);
         }
@@ -266,7 +266,7 @@ public class FaceController {
      */
     @RequestMapping(value = "/studentList", method = RequestMethod.GET)
     @ResponseBody
-    public Response<List<UserRamCache.UserInfo>> StudentList() {
+    public Response<List<UserRamCache.UserInfo>> studentList() {
         if (UserRamCache.getUserList() == null) {
             return Response.newSuccessResponse(null);
         }
