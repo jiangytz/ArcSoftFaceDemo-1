@@ -23,6 +23,7 @@ import org.springframework.util.ResourceUtils;
 import org.springframework.web.bind.annotation.*;
 import javax.annotation.PostConstruct;
 import java.io.*;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -155,6 +156,30 @@ public class FaceController {
         Float similar = faceEngineService.compareFace(rgbData1, rgbData2);
 
         return Response.newSuccessResponse(similar);
+    }
+
+    //注册接口
+    //TODO: 检查ID是否已存在
+    @RequestMapping(value = "/register", method = RequestMethod.POST)
+    @ResponseBody
+    public Response<Map<String,String>> register(String image, String name) {
+        Map<String, String> map = new HashMap<String, String>();
+
+        //将字符串解码回二进制图片数据
+        byte[] bytes = Base64Util.base64ToBytes(image);
+        ImageInfo rgbData = ImageFactory.getRGBData(bytes);
+
+        //检测提取人脸特征，未提取到人脸返回fail
+        List<FaceInfo> faceInfos = faceEngineService.detectFaces(rgbData);
+        if (!faceInfos.isEmpty()) {
+            byte[] feature = faceEngineService.extractFaceFeature(rgbData, faceInfos.get(0));
+
+            UserRamCache.UserInfo userInfo = new UserRamCache.UserInfo(name, name, feature);
+            UserRamCache.addUser(userInfo);
+            map.put("success", "true");
+        }
+        map.put("fail", "false");
+        return Response.newSuccessResponse(map);
     }
 
 }
