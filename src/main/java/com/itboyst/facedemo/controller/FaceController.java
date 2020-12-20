@@ -27,7 +27,6 @@ import java.io.*;
 import java.text.SimpleDateFormat;
 import java.util.*;
 
-
 @Controller
 @Slf4j
 public class FaceController {
@@ -159,6 +158,7 @@ public class FaceController {
         return Response.newSuccessResponse(similar);
     }
 
+
     /**
      * 签到接口，传入图片 流程 图片解码 人脸提取 特征提取 存储
      * @author iLoveCYaRon Blade Xu
@@ -178,7 +178,7 @@ public class FaceController {
         //将字符串解码回二进制图片数据
         byte[] bytes = Base64Util.base64ToBytes(image);
         ImageInfo rgbData = ImageFactory.getRGBData(bytes);
-
+      
         return Response.newSuccessResponse(getSignResult(id, rgbData));
     }
 
@@ -272,4 +272,24 @@ public class FaceController {
         }
         return Response.newSuccessResponse(UserRamCache.getUserList());
     }
+  
+    //注册接口
+    //TODO: 检查ID是否已存在
+    @RequestMapping(value = "/register", method = RequestMethod.POST)
+    @ResponseBody
+    public Response<Map<String,String>> register(String image, String name) {
+        Map<String, String> map = new HashMap<String, String>();
+        //检测提取人脸特征，未提取到人脸返回fail
+        List<FaceInfo> faceInfos = faceEngineService.detectFaces(rgbData);
+        if (!faceInfos.isEmpty()) {
+            byte[] feature = faceEngineService.extractFaceFeature(rgbData, faceInfos.get(0));
+
+            UserRamCache.UserInfo userInfo = new UserRamCache.UserInfo(name, name, feature);
+            UserRamCache.addUser(userInfo);
+            map.put("success", "true");
+        }
+        map.put("fail", "false");
+        return Response.newSuccessResponse(map);
+    }
+
 }

@@ -42,5 +42,10 @@ public class UserRamCache {
         private String name;
         private byte[] faceFeature;
 
+        public UserInfo(String faceId, String name, byte[] faceFeature) {
+            this.faceId = faceId;
+            this.name = name;
+            this.faceFeature = faceFeature;
+        }
     }
 }
