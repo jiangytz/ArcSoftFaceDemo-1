@@ -2,6 +2,7 @@ package com.itboyst.facedemo.controller;
 
 import cn.hutool.core.collection.CollectionUtil;
 import com.arcsoft.face.FaceInfo;
+import com.arcsoft.face.enums.ImageFormat;
 import com.arcsoft.face.toolkit.ImageFactory;
 import com.arcsoft.face.toolkit.ImageInfo;
 import com.google.common.collect.Lists;
@@ -13,20 +14,18 @@ import com.itboyst.facedemo.entity.UserCompareInfo;
 import com.itboyst.facedemo.rpc.Response;
 import com.itboyst.facedemo.service.FaceEngineService;
 import com.itboyst.facedemo.util.Base64Util;
+import com.itboyst.facedemo.util.HistoryRamCache;
 import com.itboyst.facedemo.util.UserRamCache;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.stereotype.Controller;
-import org.springframework.util.ResourceUtils;
 import org.springframework.web.bind.annotation.*;
 import javax.annotation.PostConstruct;
 import java.io.*;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-
+import java.text.SimpleDateFormat;
+import java.util.*;
 
 @Controller
 @Slf4j
@@ -62,6 +61,7 @@ public class FaceController {
                 userInfo.setName(fileMap.get(f));
                 userInfo.setFaceFeature(feature);
                 UserRamCache.addUser(userInfo);
+                HistoryRamCache.addHistory(f);
             }
         }
 
@@ -158,17 +158,127 @@ public class FaceController {
         return Response.newSuccessResponse(similar);
     }
 
+
+    /**
+     * 签到接口，传入图片 流程 图片解码 人脸提取 特征提取 存储
+     * @author iLoveCYaRon Blade Xu
+     * @time 2020/12/19 22:27
+     * @param image 人脸图片，Base64数据，带形如“data:image/jpg;base64,”请求头
+     * @param id 要签到的人脸ID，目前是名字
+     * @return 匹配成功 返回 {data:true}
+     */
+    //TODO: 修改返回值格式
+    @RequestMapping(value = "/sign", method = RequestMethod.POST)
+    @ResponseBody
+    public Response<Boolean> signWithImage(String image, String id) {
+        if(UserRamCache.getUserById(id) == null) {
+            return Response.newSuccessResponse(false);
+        }
+
+        //将字符串解码回二进制图片数据
+        byte[] bytes = Base64Util.base64ToBytes(image);
+        ImageInfo rgbData = ImageFactory.getRGBData(bytes);
+      
+        return Response.newSuccessResponse(getSignResult(id, rgbData));
+    }
+
+    /**
+     * 签到接口，传入图片 流程 人脸提取 特征提取 存储
+     * @author iLoveCYaRon Blade Xu
+     * @time 2020/12/19 22:27
+     * @param imageData 经ImageFactory处理过的bgr24数据
+     * @param height 图像高度
+     * @param width 图像宽度
+     * @param id 要签到的人脸ID，目前是名字
+     * @return 匹配成功 返回 {data:true}
+     */
+    @RequestMapping(value = "/sign2", method = RequestMethod.POST)
+    @ResponseBody
+    public Response<Boolean> signWithImageData(String imageData,int width, int height, String id) throws IOException, ClassNotFoundException {
+        if(UserRamCache.getUserById(id) == null) {
+            return Response.newSuccessResponse(false);
+        }
+
+        return Response.newSuccessResponse(getSignResult(id, processImageInfo(imageData, width, height)));
+    }
+
+    //将传入的数据处理为ImageInfo对象
+    private ImageInfo processImageInfo(String imageData,int width, int height) {
+        ImageInfo info = new ImageInfo();
+        info.setImageData(Base64Util.base64ToBytes(imageData));
+        info.setWidth(width);
+        info.setHeight(height);
+        //HardCode
+        info.setImageFormat(ImageFormat.CP_PAF_BGR24);
+        return info;
+    }
+
+    /**
+     * 获取签到结果
+     * @author iLoveCYaRon Blade Xu
+     * @time 2020/12/20 14:25
+     * @param id 签到人名称
+     * @param imageInfo 经过处理提取的图像数据 bgr24格式
+     * @return 签到是否成功
+     */
+    private Boolean getSignResult(String id, ImageInfo imageInfo) {
+
+        //检测提取人脸特征，未提取到人脸或者人脸不匹配返回false
+        List<FaceInfo> faceInfos = faceEngineService.detectFaces(imageInfo);
+        if (!faceInfos.isEmpty()) {
+            byte[] feature = faceEngineService.extractFaceFeature(imageInfo, faceInfos.get(0));
+            if (faceEngineService.faceRecognition(feature, UserRamCache.getUserById(id), 0.8f) != null) {
+
+                //获取当前系统时间
+                Date date = new Date();
+                SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+                String day = dateFormat.format(date);
+                //为该id的签到历史添加一项
+                HistoryRamCache.addHistoryItem(id, new HistoryRamCache.History(id, day));
+
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * 获取签到历史接口
+     * @author HardAlways
+     * @time 2020/12/20 11:17
+     * @param id 人名
+     * @return 返回 {data:签到历史} 签到历史可空
+     */
+    @RequestMapping(value = "/historyList", method = RequestMethod.GET)
+    @ResponseBody
+    public Response<List<HistoryRamCache.History>> historyList(String id) {
+        if(HistoryRamCache.getHistoryList(id) == null) {
+            return Response.newSuccessResponse(null);
+        }
+        return Response.newSuccessResponse(HistoryRamCache.getHistoryList(id));
+    }
+
+    /**
+     * 获取学生列表接口
+     * @author HardAlways
+     * @time 2020/12/20 13：10
+     * @return 返回 {data:学生列表}
+     */
+    @RequestMapping(value = "/studentList", method = RequestMethod.GET)
+    @ResponseBody
+    public Response<List<UserRamCache.UserInfo>> studentList() {
+        if (UserRamCache.getUserList() == null) {
+            return Response.newSuccessResponse(null);
+        }
+        return Response.newSuccessResponse(UserRamCache.getUserList());
+    }
+  
     //注册接口
     //TODO: 检查ID是否已存在
     @RequestMapping(value = "/register", method = RequestMethod.POST)
     @ResponseBody
     public Response<Map<String,String>> register(String image, String name) {
         Map<String, String> map = new HashMap<String, String>();
-
-        //将字符串解码回二进制图片数据
-        byte[] bytes = Base64Util.base64ToBytes(image);
-        ImageInfo rgbData = ImageFactory.getRGBData(bytes);
-
         //检测提取人脸特征，未提取到人脸返回fail
         List<FaceInfo> faceInfos = faceEngineService.detectFaces(rgbData);
         if (!faceInfos.isEmpty()) {

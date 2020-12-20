@@ -1,17 +1,17 @@
 package com.itboyst.facedemo.service.impl;
 
 import cn.hutool.core.collection.CollectionUtil;
+import com.arcsoft.face.*;
 import com.arcsoft.face.enums.DetectMode;
 import com.arcsoft.face.enums.DetectOrient;
 import com.arcsoft.face.toolkit.ImageInfo;
-import com.itboyst.facedemo.entity.UserCompareInfo;
+import com.google.common.collect.Lists;
 import com.itboyst.facedemo.entity.ProcessInfo;
+import com.itboyst.facedemo.entity.UserCompareInfo;
 import com.itboyst.facedemo.enums.ErrorCodeEnum;
 import com.itboyst.facedemo.factory.FaceEngineFactory;
 import com.itboyst.facedemo.rpc.BusinessException;
 import com.itboyst.facedemo.service.FaceEngineService;
-import com.arcsoft.face.*;
-import com.google.common.collect.Lists;
 import com.itboyst.facedemo.util.UserRamCache;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.pool2.impl.GenericObjectPool;
@@ -21,8 +21,10 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
+import javax.annotation.Nullable;
 import javax.annotation.PostConstruct;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.*;
 
@@ -73,7 +75,7 @@ public class FaceEngineServiceImpl implements FaceEngineService {
         detectFunctionCfg.setSupportLiveness(true);//开启活体检测功能
         detectCfg.setFunctionConfiguration(detectFunctionCfg);
         detectCfg.setDetectMode(DetectMode.ASF_DETECT_MODE_IMAGE);//图片检测模式，如果是连续帧的视频流图片，那么改成VIDEO模式
-        detectCfg.setDetectFaceOrientPriority(DetectOrient.ASF_OP_0_ONLY);//人脸旋转角度
+        detectCfg.setDetectFaceOrientPriority(DetectOrient.ASF_OP_ALL_OUT);//人脸旋转角度
         faceEngineGeneralPool = new GenericObjectPool(new FaceEngineFactory(sdkLibPath, appId, sdkKey, null, detectCfg), detectPoolConfig);//底层库算法对象池
 
 
@@ -88,7 +90,7 @@ public class FaceEngineServiceImpl implements FaceEngineService {
         compareFunctionCfg.setSupportFaceRecognition(true);//开启人脸识别功能
         compareCfg.setFunctionConfiguration(compareFunctionCfg);
         compareCfg.setDetectMode(DetectMode.ASF_DETECT_MODE_IMAGE);//图片检测模式，如果是连续帧的视频流图片，那么改成VIDEO模式
-        compareCfg.setDetectFaceOrientPriority(DetectOrient.ASF_OP_0_ONLY);//人脸旋转角度
+        compareCfg.setDetectFaceOrientPriority(DetectOrient.ASF_OP_ALL_OUT);//人脸旋转角度
         faceEngineComparePool = new GenericObjectPool(new FaceEngineFactory(sdkLibPath, appId, sdkKey, null, compareCfg), comparePoolConfig);//底层库算法对象池
         compareExecutorService = Executors.newFixedThreadPool(comparePooSize);
     }
@@ -239,6 +241,40 @@ public class FaceEngineServiceImpl implements FaceEngineService {
         return resultUserInfoList;
     }
 
+    /**
+     *
+     * @author iLoveCYaRon Blade Xu
+     * @time 2020/12/19 21:43
+     * @param faceFeature 人脸特征二进制数据
+     * @param userInfo 存储在运存中的已注册人脸
+     * @param passRate 人脸识别通过阈值
+     * @return 比较结果，含相似度，相似度不足阈值返回null
+     */
+    @Nullable
+    @Override
+    public UserCompareInfo faceRecognition(byte[] faceFeature, UserRamCache.UserInfo userInfo, float passRate) {
+
+        FaceFeature targetFaceFeature = new FaceFeature();
+        targetFaceFeature.setFeatureData(faceFeature);
+
+        CompletionService<List<UserCompareInfo>> completionService = new ExecutorCompletionService(compareExecutorService);
+        completionService.submit(new CompareFaceTask(Collections.singletonList(userInfo), targetFaceFeature, passRate));
+
+        List<UserCompareInfo> faceUserInfo = null;
+
+        try {
+            faceUserInfo = completionService.take().get();
+        } catch (InterruptedException | ExecutionException e) {
+
+        }
+
+        if (faceUserInfo == null || faceUserInfo.isEmpty()) {
+            return null;
+        } else {
+            return faceUserInfo.get(0);
+        }
+
+    }
 
     @Override
     public List<ProcessInfo> process(ImageInfo imageInfo, List<FaceInfo> faceInfoList) {

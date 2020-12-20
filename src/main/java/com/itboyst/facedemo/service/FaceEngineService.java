@@ -18,7 +18,9 @@ public interface FaceEngineService {
 
     byte[] extractFaceFeature(ImageInfo imageInfo,FaceInfo faceInfo);
 
-    List<UserCompareInfo> faceRecognition(byte[] faceFeature, List<UserRamCache.UserInfo> userInfoList, float passRate) ;
+    List<UserCompareInfo> faceRecognition(byte[] faceFeature, List<UserRamCache.UserInfo> userInfoList, float passRate);
+
+    UserCompareInfo faceRecognition(byte[] faceFeature, UserRamCache.UserInfo userInfo, float passRate);
 
     List<ProcessInfo> process(ImageInfo imageInfo,List<FaceInfo> faceInfoList);
 

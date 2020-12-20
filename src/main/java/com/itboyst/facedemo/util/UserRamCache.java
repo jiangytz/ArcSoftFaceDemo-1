@@ -31,6 +31,9 @@ public class UserRamCache {
         return userInfoList;
     }
 
+    public static UserInfo getUserById(String id) {
+        return userInfoMap.get(id);
+    }
 
     @Data
     public static class UserInfo {
