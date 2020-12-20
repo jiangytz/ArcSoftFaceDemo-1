@@ -279,12 +279,18 @@ public class FaceController {
     @ResponseBody
     public Response<Map<String,String>> register(String image, String name) {
         Map<String, String> map = new HashMap<String, String>();
+        //将字符串解码回二进制图片数据
+        byte[] bytes = Base64Util.base64ToBytes(image);
+        ImageInfo rgbData = ImageFactory.getRGBData(bytes);
         //检测提取人脸特征，未提取到人脸返回fail
         List<FaceInfo> faceInfos = faceEngineService.detectFaces(rgbData);
         if (!faceInfos.isEmpty()) {
             byte[] feature = faceEngineService.extractFaceFeature(rgbData, faceInfos.get(0));
 
-            UserRamCache.UserInfo userInfo = new UserRamCache.UserInfo(name, name, feature);
+            UserRamCache.UserInfo userInfo = new UserRamCache.UserInfo();
+            userInfo.setFaceId(name);
+            userInfo.setName(name);
+            userInfo.setFaceFeature(feature);
             UserRamCache.addUser(userInfo);
             map.put("success", "true");
         }
